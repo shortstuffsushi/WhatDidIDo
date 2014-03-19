@@ -1,0 +1,10 @@
+{
+  "name": "whatdidido",
+  "version": "0.0.1",
+  "description": "Tool for seeing who owns which pieces of a Git project.",
+  "author": "graham.mueller315@gmail.com",
+  "dependencies": {
+    "bluebird": "~1.1.1",
+    "exec-sync": "~0.1.6"
+  }
+}

@@ -1,5 +1,5 @@
-var exec = require('exec-sync'),
-    Promise = require('bluebird'),
+var Promise = require('bluebird'),
+    childProcess = Promise.promisifyAll(require('child_process')),
     fs = Promise.promisifyAll(require('fs')),
     emailRegex = /\(<(.*?)>/,
     ignoreRegex = /\.DS_Store|\.git|node_modules|\.sass-cache|3rd[Pp]arty/,
@@ -49,82 +49,75 @@ function _parseArgs() {
     }
 
     projectDir = args.length ? args.pop() : process.cwd();
+
+    // Fix trailing slash.
+    if (/\/$/.test(projectDir)) {
+        projectDir = projectDir.substring(0, projectDir.length - 1);
+    }
 }
 
 function _runGitBlame(path) {
     // There are a lot of files we don't care to check, ignore them...
-    if (ignoreRegex.test(path) || (customIgnores && customIgnores.test(path))) { return Promise.resolve(); }
+    if (ignoreRegex.test(path) || (customIgnores && customIgnores.test(path))) { return; }
 
     _verboseLog(path);
 
-    var stat;
+    return fs.statAsync(path)
+        .then(function(stat) {
+            if (stat.isDirectory()) {
+                return fs.readdirAsync(path)
+                    .then(function(dirItems) {
+                        var dirPromises = [];
+                        dirItems.forEach(function(dirItem) {
+                            dirPromises.push(_runGitBlame(path + '/' + dirItem));
+                        });
 
-    try {
-        stat = fs.statSync(path);
-    }
-    catch (e) {
-        _verboseLog(path + ' failed, skipping.');
-        return Promise.resolve();
-    }
-
-    if (stat.isDirectory(path)) {
-        return fs
-            .readdirAsync(path)
-            .then(function(dirItems) {
-                var dirPromises = [];
-                dirItems.forEach(function(dirItem) {
-                    dirPromises.push(_runGitBlame(path + '/' + dirItem));
-                });
-
-                return Promise.all(dirPromises);
-            });
-    }
-    else {
-        return new Promise(function(resolve, reject) {
-            try {
-                var blame = exec('git blame --show-email ' + path);
-
-                if (!blame) {
-                    resolve(); // got no one to blame
-                }
-
-                var curFileBlame = { totalLines: 0 };
-                var blameByLine = blame.split('\n');
-
-                blameByLine.forEach(function(line) {
-                    overallBlame.totalLines++;
-                    curFileBlame.totalLines++;
-
-                    var email = line.match(emailRegex)[1];
-
-                    if (!curFileBlame[email]) {
-                        curFileBlame[email] = 0;
-                    }
-
-                    if (!overallBlame.contributors[email]) {
-                        overallBlame.contributors[email] = 0;
-                    }
-
-                    curFileBlame[email]++;
-                    overallBlame.contributors[email]++;
-                });
-
-                overallBlame.files[path] = curFileBlame;
-
-                resolve();
+                        return Promise.all(dirPromises);
+                    });
             }
-            catch (e) {
-                // No such path means this file isn't committed, which is fine, just skip it.
-                // Anything else... we've got a problem.
-                if (noSuchPathRegex.test(e.message)) {
-                    resolve();
-                }
-                else {
-                    reject(e);
-                }
+            else {
+                return childProcess.execAsync('git blame --show-email ' + path)
+                    .then(function(blame) {
+                        if (!blame) { return; }
+
+                        // TODO figure out why this is an array...
+                        blame = blame.shift();
+
+                        var curFileBlame = { totalLines: 0 };
+                        var blameByLine = blame.split('\n').filter(function(line) { return line.length; });
+
+                        blameByLine.forEach(function(line) {
+                            overallBlame.totalLines++;
+                            curFileBlame.totalLines++;
+
+                            var email = line.match(emailRegex).pop();
+
+                            if (!curFileBlame[email]) {
+                                curFileBlame[email] = 0;
+                            }
+
+                            if (!overallBlame.contributors[email]) {
+                                overallBlame.contributors[email] = 0;
+                            }
+
+                            curFileBlame[email]++;
+                            overallBlame.contributors[email]++;
+                        });
+
+                        overallBlame.files[path] = curFileBlame;
+                    })
+                    .catch(function(e) {
+                        // No such path means this file isn't committed, which is fine, just skip it.
+                        // Anything else... we've got a problem.
+                        if (!noSuchPathRegex.test(e.message)) {
+                            throw e;
+                        }
+                    });
             }
-        });
-    }
+        })
+        .catch(function(e) {
+            _verboseLog(path + ' failed, skipping.\n' + e);
+        })
 }
 
 function _printResults() {
@@ -138,10 +131,18 @@ function _printResults() {
             var contributorLines = overallBlame.contributors[email];
 
             var coveragePercent = contributorLines / overallBlame.totalLines * 100;
-            var coveragePercentFixed = (padString + coveragePercent.toFixed(2)).slice(-padString.length);
 
-            console.log(coveragePercentFixed + ' | ' + email);
+            coveragePercents.push({ percent: coveragePercent, email: email });
         }
+
+        coveragePercents.sort(function(a, b) {
+            return a.percent < b.percent;
+        });
+
+        coveragePercents.forEach(function(coverage) {
+            var fixedPercent = (padString + coverage.percent.toFixed(2)).slice(-padString.length);
+            console.log(fixedPercent + ' | ' + coverage.email);
+        });
     }
 }
 

@@ -10,7 +10,59 @@ function _verboseLog(msg) {
     verbose && console.log(msg);
 }
 
-function _runGitBlame(path) {
+function _blameFile(path) {
+    return childProcess.execAsync('git blame --show-email ' + path)
+        .then(function(blame) {
+            if (!blame) { return; }
+
+            // TODO figure out why this is an array...
+            blame = blame.shift();
+
+            var curFileBlame = { totalLines: 0 };
+            var blameByLine = blame.split('\n').filter(function(line) { return line.length; });
+
+            blameByLine.forEach(function(line) {
+                overallBlame.totalLines++;
+                curFileBlame.totalLines++;
+
+                var email = line.match(emailRegex).pop();
+
+                if (!curFileBlame[email]) {
+                    curFileBlame[email] = 0;
+                }
+
+                if (!overallBlame.contributors[email]) {
+                    overallBlame.contributors[email] = 0;
+                }
+
+                curFileBlame[email]++;
+                overallBlame.contributors[email]++;
+            });
+
+            overallBlame.files[path] = curFileBlame;
+        })
+        .catch(function(e) {
+            // No such path means this file isn't committed, which is fine, just skip it.
+            // Anything else... we've got a problem.
+            if (!noSuchPathRegex.test(e.message)) {
+                throw e;
+            }
+        });
+}
+
+function _blameDir(path) {
+    return fs.readdirAsync(path)
+        .then(function(dirItems) {
+            var dirPromises = [];
+            dirItems.forEach(function(dirItem) {
+                dirPromises.push(_runGitBlame(path + '/' + dirItem));
+            });
+
+            return Promise.all(dirPromises);
+        })
+}
+
+function _runGitBlame(path, dir) {
     // There are a lot of files we don't care to check, ignore them...
     if (ignoreRegex.test(path) || (ignores && ignores.test(path))) { return; }
 
@@ -18,56 +70,7 @@ function _runGitBlame(path) {
 
     return fs.statAsync(path)
         .then(function(stat) {
-            if (stat.isDirectory()) {
-                return fs.readdirAsync(path)
-                    .then(function(dirItems) {
-                        var dirPromises = [];
-                        dirItems.forEach(function(dirItem) {
-                            dirPromises.push(_runGitBlame(path + '/' + dirItem));
-                        });
-
-                        return Promise.all(dirPromises);
-                    });
-            }
-            else {
-                return childProcess.execAsync('git blame --show-email ' + path)
-                    .then(function(blame) {
-                        if (!blame) { return; }
-
-                        // TODO figure out why this is an array...
-                        blame = blame.shift();
-
-                        var curFileBlame = { totalLines: 0 };
-                        var blameByLine = blame.split('\n').filter(function(line) { return line.length; });
-
-                        blameByLine.forEach(function(line) {
-                            overallBlame.totalLines++;
-                            curFileBlame.totalLines++;
-
-                            var email = line.match(emailRegex).pop();
-
-                            if (!curFileBlame[email]) {
-                                curFileBlame[email] = 0;
-                            }
-
-                            if (!overallBlame.contributors[email]) {
-                                overallBlame.contributors[email] = 0;
-                            }
-
-                            curFileBlame[email]++;
-                            overallBlame.contributors[email]++;
-                        });
-
-                        overallBlame.files[path] = curFileBlame;
-                    })
-                    .catch(function(e) {
-                        // No such path means this file isn't committed, which is fine, just skip it.
-                        // Anything else... we've got a problem.
-                        if (!noSuchPathRegex.test(e.message)) {
-                            throw e;
-                        }
-                    });
-            }
+            return (stat.isDirectory() ? _blameDir : _blameFile)(path);
         })
         .catch(function(e) {
             // TODO better logging
@@ -87,7 +90,6 @@ function _execute(opts) {
 
     return _runGitBlame(opts.projectDir)
         .catch(function(err) {
-            debugger;
             console.log(err);
         })
         .finally(function() {

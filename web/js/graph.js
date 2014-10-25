@@ -21,8 +21,6 @@ function drawstuff() { $.ajax({
 function drawpie(data) {
 
     var graphdata = data.contributors;
-    console.log(data);
-    console.log(graphdata);
 
     var div_location = '#piechart';
 
@@ -82,13 +80,12 @@ function drawpie(data) {
       .each(function(d) { this._current = d; });
 
     path.on('mouseover', function(d) {
-        console.log(d3.event.pageX)
-      var total = d3.sum(dataset.map(function(d) {
+      var total = d3.sum(graphdata.map(function(d) {
         return (d.enabled) ? d.lineCount : 0;
       }));
       var percent = Math.round(1000 * d.data.lineCount / total) / 10;
       tooltip.select('.label').html(d.data.email);
-      tooltip.select('.count').html(d.data.lineCount); 
+      tooltip.select('.lineCount').html(d.data.lineCount); 
       tooltip.select('.percent').html(percent + '%'); 
       tooltip.style('display', 'block');
     });
@@ -122,10 +119,10 @@ function drawpie(data) {
       .attr('height', legendRectSize)                                   
       .style('fill', color)
       .style('stroke', color)
-      .on('click', function(label) {
+      .on('click', function(email) {
         var rect = d3.select(this);
         var enabled = true;
-        var totalEnabled = d3.sum(dataset.map(function(d) {
+        var totalEnabled = d3.sum(graphdata.map(function(d) {
           return (d.enabled) ? 1 : 0;
         }));
         
@@ -138,7 +135,7 @@ function drawpie(data) {
         }
 
         pie.value(function(d) {
-          if (d.label === label) d.enabled = enabled;
+          if (d.email === email) d.enabled = enabled;
           return (d.enabled) ? d.lineCount : 0;
         });
 

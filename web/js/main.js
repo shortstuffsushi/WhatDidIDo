@@ -32,6 +32,7 @@ function repoLoaded() {
     }
 
     drawpie(firstCommitData);
+    drawsteamgraph(repoData);
 }
 
 function submit() {

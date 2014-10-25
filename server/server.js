@@ -10,22 +10,33 @@ expressConfigurator.init(app, [
     { name: 'serve-static', config: path.join(__dirname, '..', 'web'), context: '/web' }
 ]);
 
-app.get('/:repositoryName', function(req, res) {
-    var repositoryName = req.params.repositoryName,
-        actualRepo = process.cwd() + '/../' + repositoryName,
-        opts = {
-            verbose: false,
-            projectDir: actualRepo,
-            customIgnores: new RegExp('android|Pods|test/lib|www/lib')
-        };
+app.get('/:repoOwner/:repo', function(req, res) {
+    var repoOwner = req.params.repoOwner;
+    var repo = req.params.repoOwner + (req.params.repo ? '/' + req.params.repo : '');
+    var actualRepo = path.join(__dirname, '..', '..', repo);
+
+    // Check type
+    if (req.params.type) {
+        opts.type = req.params.type;
+    }
+
+    var opts = {
+        type: 'remote',
+        host: 'github',
+        verbose: false,
+        repo: repo,
+        projectDir: actualRepo,
+        customIgnores: new RegExp('android|Pods|test/lib|www/lib')
+    };
 
     whatdidido
         .execute(opts)
         .then(function(results) {
+            console.log('got results:', results);
             res.json(results);
         })
         .catch(function(e) {
-            res.json(400, e);
+            res.status(500).json(e);
         });
 });
 

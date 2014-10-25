@@ -20,7 +20,7 @@ function repoLoaded() {
 
         emailTd.innerHTML = contributor.email;
         numLinesTd.innerHTML = contributor.lineCount;
-        percentTd.innerHTML = contributor.lineCount / repoData.totalLines * 100;
+        percentTd.innerHTML = Math.round(contributor.lineCount / firstCommitData.totalLines * 1000)/10+'%';
 
         tr.appendChild(gravatarTd);
         gravatarTd.appendChild(gravatarImg);

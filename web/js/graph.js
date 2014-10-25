@@ -148,69 +148,63 @@ function drawpie(data) {
 /// draw  steamgraph //
 ///////////////////////
 
-function drawsteamgraph(data) {
+function drawsteamgraph(commits) {
+  var steamChartData = [ ];
+  var steamContributorMap = { };
 
-var steamgraphdata = [];
+  $.each(commits, function(commitIndex, commit) {
+    $.each(commit.contributors, function(contributorIndex, contributor) {
+      var steamContributorObj = steamContributorMap[contributor.email];
+      if (!steamContributorObj) {
+        steamContributorObj = {
+          name: contributor.email,
+          values: [ ]
+        };
 
-data.forEach(function(dataPoint) {
-    dataPoint.contributors.forEach(function(contributor) {
-        contributor.date = dataPoint.commit.date;
+        steamContributorMap[contributor.email] = steamContributorObj;
+        steamChartData.push(steamContributorObj);
+      }
+
+      steamContributorObj.values.push({
+        x: commitIndex,//.commit.date,
+        y: contributor.lineCount
+      });
     });
-    steamgraphdata.push(dataPoint.contributors);
-});
+  });
 
-var bar_div = "#steamgraph";
+  var steamGraphDivId = '#steamgraph';
+  var divWidth = $(steamGraphDivId).width();
 
-var div_width = $(bar_div).width();
+  var stack = d3.layout.stack()
+      .offset('wiggle')
+      .values(function(d) { return d.values; });
 
-var stack = d3.layout.stack()
-    .offset("wiggle")
-    .values(function(d, i) {
-        console.log(d);
-        console.log(i);
-        });
+  var layers = stack(steamChartData);
 
-var layers = stack(steamgraphdata);
+  var width = divWidth,
+      height = 500;
 
-console.log(layers);
+  var x = d3.scale.ordinal()
+      .range([ 0, width ]);
 
-var width = div_width,
-    height = 500;
+  var y = d3.scale.linear()
+      .range([ height, 0 ]);
 
-var x = d3.time.scale()
-    .range([0, width]);
+  var color = d3.scale.category10();
 
-var y = d3.scale.linear()
-    .domain([0, d3.max(function(layers) { return d.y0 + d.lineCount; })])
-    .range([height, 0]);
+  var area = d3.svg.area()
+      .x(function(d) { return x(d.x); })
+      .y0(function(d) { return y(d.y0); })
+      .y1(function(d) { return y(d.y0 + d.y); });
 
-var color = d3.scale.category10();
+  var svg = d3.select(steamGraphDivId)
+      .append('svg')
+      .attr('width', width)
+      .attr('height', height);
 
-var area = d3.svg.area()
-    .x(function(d) { return x(d.date); })
-    .y0(function(d) { return y(d.y0); })
-    .y1(function(d) { return y(d.y0 + d.lineCount); });
-
-var svg = d3.select(bar_div).append("svg")
-    .attr("width", width)
-    .attr("height", height);
-
-svg.selectAll("path")
-    .data(layers)
-  .enter().append("path")
-    .attr("d", area)
-    .style("fill", function() { return color(Math.random()); });
-
-// function transition() {
-//   d3.selectAll("path")
-//       .data(function() {
-//         var d = layers1;
-//         layers1 = layers;
-//         return layers = d;
-//       })
-//     .transition()
-//       .duration(2500)
-//       .attr("d", area);
-// }
-
+  svg.selectAll('path')
+      .data(layers)
+    .enter().append('path')
+      .attr('d', function(d) { return area(d.values); })
+      .style('fill', function() { return color(Math.random()); });
 };

@@ -184,8 +184,8 @@ function _shallowCloneRemote(host, repo) {
 
 // Public API
 function _execute(opts) {
-    // verbose = opts.verbose;
-    // ignores = opts.customIgnores;
+    verbose = opts.verbose;
+    ignores = opts.customIgnores;
 
     if (opts.type === 'remote') {
         return _shallowCloneRemote(opts.host, opts.repo)

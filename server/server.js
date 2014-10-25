@@ -14,21 +14,19 @@ app.get('/:repoOwner/:repo', function(req, res) {
     var repoOwner = req.params.repoOwner;
     var repo = req.params.repoOwner + (req.params.repo ? '/' + req.params.repo : '');
     var actualRepo = path.join(__dirname, '..', '..', repo);
+    var type = req.query.type || 'remote';
+    var numberOfCommits = req.query.numberOfCommits || 5;
+    var host = req.query.host || 'github';
+    var customIgnores = req.params.customIgnores || '^$';
 
-    // Check type
-    if (req.params.type) {
-        opts.type = req.params.type;
-    }
-
-    // TODO de-hard code all the things
     var opts = {
-        type: 'remote',
-        host: 'github',
+        type: type,
+        host: host,
         verbose: false,
-        numberOfCommits: 5,
+        numberOfCommits: numberOfCommits,
         repo: repo,
         projectDir: actualRepo,
-        customIgnores: new RegExp('android|Pods|test/lib|www/lib')
+        customIgnores: new RegExp(customIgnores)
     };
 
     whatdidido

@@ -38,4 +38,6 @@ function submit() {
         req.open('GET', 'http://localhost:3000/' + repoName, true);
         req.send();
     }
+
+    drawstuff();
 }

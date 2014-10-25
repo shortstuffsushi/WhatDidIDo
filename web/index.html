@@ -18,22 +18,24 @@
 
         <button class="btn btn-default" onclick='submit()'>Submit</button>
 
-        <div id="steamgraph"></div>
+        <div class="container-fluid">
+            <div id="piechart"></div>
 
-        <div id='repository'>
-            <table class="table table-hover">
-            <tbody id="repo-percent-table">
-                <tr>
-                    <th>Gravatar</th>
-                    <th>Email</th>
-                    <th># Lines</th>
-                    <th>Percent Ownership</th>
-                </tr>
-            </tbody>
-            </table>
+            <div id='repository'>
+                <table class="table table-hover">
+                <tbody id="repo-percent-table">
+                    <tr>
+                        <th>Gravatar</th>
+                        <th>Email</th>
+                        <th># Lines</th>
+                        <th>Percent Ownership</th>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+
+            <div id="steamgraph"></div>
         </div>
-
-        <div id="steamgraph"></div>
 
         <script type="text/javascript" src="js/md5.js"></script>
         <script type="text/javascript" src="js/main.js"></script>

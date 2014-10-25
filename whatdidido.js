@@ -22,7 +22,7 @@ function _blameFile(overallBlame, path) {
             // TODO figure out why this is an array...
             blame = blame.shift();
 
-            var curFileBlame = { totalLines: 0 };
+            var curFileBlame = { totalLines: 0, contributors: [ ], contributorsMap: { } };
             var blameByLine = blame.split('\n').filter(function(line) { return line.length; });
 
             blameByLine.forEach(function(line) {
@@ -31,18 +31,31 @@ function _blameFile(overallBlame, path) {
 
                 var email = line.match(emailRegex).pop();
 
-                if (!curFileBlame[email]) {
-                    curFileBlame[email] = 0;
+                if (!curFileBlame.contributorsMap[email]) {
+                    var fileContributor = {
+                        email: email,
+                        lineCount: 0
+                    };
+
+                    curFileBlame.contributorsMap[email] = fileContributor;
+                    curFileBlame.contributors.push(fileContributor);
                 }
 
-                if (!overallBlame.contributors[email]) {
-                    overallBlame.contributors[email] = 0;
+                if (!overallBlame.contributorsMap[email]) {
+                    var overallContributor = {
+                        email: email,
+                        lineCount: 0
+                    };
+
+                    overallBlame.contributorsMap[email] = overallContributor;
+                    overallBlame.contributors.push(overallContributor);
                 }
 
-                curFileBlame[email]++;
-                overallBlame.contributors[email]++;
+                curFileBlame.contributorsMap[email].lineCount++;
+                overallBlame.contributorsMap[email].lineCount++;
             });
 
+            delete curFileBlame.contributorsMap;
             overallBlame.files[path] = curFileBlame;
         })
         .catch(function(e) {
@@ -89,24 +102,20 @@ function _moveIntoDirectoryAndRun(dir) {
     // Then move to the project dir. We have to be here to run the git commands.
     process.chdir(dir);
 
-    var overallBlame = { totalLines: 0, files: { }, contributors: { } };
+    var overallBlame = { totalLines: 0, files: { }, contributors: [ ], contributorsMap: { } };
 
-    console.log('Starting blame of', dir);
     return _runGitBlame(overallBlame, dir)
-        .catch(function(err) {
-            console.log(err);
-        })
         .finally(function() {
             process.chdir(startDir);
         })
         .then(function() {
-            console.log('completed')
+            delete overallBlame.contributorsMap;
             return overallBlame;
         });
 }
 
 function _shallowCloneRemote(host, repo) {
-    console.log('Attempting to clone', repo);
+    _verboseLog('Attempting to clone', repo);
 
     // Host aliasing
     if (host === 'github') {
@@ -121,7 +130,7 @@ function _shallowCloneRemote(host, repo) {
         .catch(function(e) {
             // Already cloned this dood
             if (REPO_EXISTS_MSG.test(e.message)) {
-                console.log(repo, 'already exists');
+                _verboseLog(repo, 'already exists');
             }
             else {
                 throw e;

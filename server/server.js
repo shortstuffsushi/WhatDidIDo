@@ -20,10 +20,12 @@ app.get('/:repoOwner/:repo', function(req, res) {
         opts.type = req.params.type;
     }
 
+    // TODO de-hard code all the things
     var opts = {
         type: 'remote',
         host: 'github',
         verbose: false,
+        numberOfCommits: 5,
         repo: repo,
         projectDir: actualRepo,
         customIgnores: new RegExp('android|Pods|test/lib|www/lib')
@@ -32,7 +34,6 @@ app.get('/:repoOwner/:repo', function(req, res) {
     whatdidido
         .execute(opts)
         .then(function(results) {
-            console.log('got results:', results);
             res.json(results);
         })
         .catch(function(e) {

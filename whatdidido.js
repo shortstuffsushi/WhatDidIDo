@@ -7,6 +7,9 @@ var Promise = require('bluebird'),
     noSuchPathRegex = /no such path '.*' in .*/,
     REPO_CLONE_DIR = Path.join(__dirname, 'repos'),
     REPO_EXISTS_MSG = /Command failed: fatal: destination path .* already exists and is not an empty directory./,
+    SHA_REGEX = /commit (.*)/,
+    AUTHOR_REGEX = /Author: (.*)/,
+    DATE_REGEX = /Date: (.*)/,
     verbose = true,
     ignores;
 
@@ -79,7 +82,7 @@ function _blameDir(overallBlame, path) {
         })
 }
 
-function _runGitBlame(overallBlame, path, dir) {
+function _runGitBlame(overallBlame, path) {
     // There are a lot of files we don't care to check, ignore them...
     if (ignoreRegex.test(path) || (ignores && ignores.test(path))) { return; }
 
@@ -95,27 +98,68 @@ function _runGitBlame(overallBlame, path, dir) {
         })
 }
 
-function _moveIntoDirectoryAndRun(dir) {
+function _checkOutRevisionBackXCommits(numberOfCommits) {
+    return childProcess.execAsync('git checkout master~' + numberOfCommits)
+        .then(function() {
+            return childProcess.execAsync('git log HEAD~1..HEAD');
+        })
+        .then(function(logOutput) {
+            // TODO figure out why this is an array...
+            logOutput = logOutput.shift();
+
+            var values = logOutput.split('\n');
+            var sha = SHA_REGEX.exec(values[0])[1];
+            var author = AUTHOR_REGEX.exec(values[1])[1];
+            var date = DATE_REGEX.exec(values[2])[1];
+
+            return {
+                sha: sha,
+                author: author,
+                date: date
+            };
+        });
+}
+
+function _moveIntoDirectoryAndRun(dir, numberOfCommits, blames) {
+    var decrementedNumberOfCommits = numberOfCommits - 1;
+
+    _verboseLog('Looking at ' + dir + ' back ' + decrementedNumberOfCommits + ' commits');
+
     // Save this off so we can come back
     var startDir = process.cwd();
 
     // Then move to the project dir. We have to be here to run the git commands.
     process.chdir(dir);
 
-    var overallBlame = { totalLines: 0, files: { }, contributors: [ ], contributorsMap: { } };
+    var versionBlame = { totalLines: 0, files: { }, contributors: [ ], contributorsMap: { } };
+    return _checkOutRevisionBackXCommits(decrementedNumberOfCommits)
+        .then(function(commitInfo) {
+            versionBlame.commit = commitInfo;
 
-    return _runGitBlame(overallBlame, dir)
-        .finally(function() {
-            process.chdir(startDir);
+            return _runGitBlame(versionBlame, dir);
         })
         .then(function() {
-            delete overallBlame.contributorsMap;
-            return overallBlame;
+            delete versionBlame.contributorsMap;
+
+            blames = blames || [];
+
+            blames.push(versionBlame);
+
+            if (decrementedNumberOfCommits > 0) {
+                return _moveIntoDirectoryAndRun(dir, decrementedNumberOfCommits, blames);
+            }
+            else {
+                return blames;
+            }
+        })
+        .finally(function() {
+            // Make sure to come back to the start
+            process.chdir(startDir);
         });
 }
 
 function _shallowCloneRemote(host, repo) {
-    _verboseLog('Attempting to clone', repo);
+    _verboseLog('Attempting to clone' + repo);
 
     // Host aliasing
     if (host === 'github') {
@@ -130,7 +174,7 @@ function _shallowCloneRemote(host, repo) {
         .catch(function(e) {
             // Already cloned this dood
             if (REPO_EXISTS_MSG.test(e.message)) {
-                _verboseLog(repo, 'already exists');
+                _verboseLog(repo + 'already exists');
             }
             else {
                 throw e;
@@ -140,7 +184,7 @@ function _shallowCloneRemote(host, repo) {
 
 // Public API
 function _execute(opts) {
-    // verbose = opts.verbose;
+    verbose = opts.verbose;
     ignores = opts.customIgnores;
 
     if (opts.type === 'remote') {
@@ -148,11 +192,11 @@ function _execute(opts) {
             .then(function() {
                 var repoPath = Path.join(REPO_CLONE_DIR, opts.repo);
 
-                return _moveIntoDirectoryAndRun(repoPath);
+                return _moveIntoDirectoryAndRun(repoPath, opts.numberOfCommits);
             });
     }
     else {
-        return _moveIntoDirectoryAndRun(opts.projectDir);
+        return _moveIntoDirectoryAndRun(opts.projectDir, opts.numberOfCommits);
     }
 }
 

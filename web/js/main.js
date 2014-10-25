@@ -30,7 +30,7 @@ function repoLoaded() {
 
 function submit() {
     var repoNameDiv = document.getElementById('repository-name'),
-        repoName = repoNameDiv.innerHTML.trim().replace(/\s?&nbsp;/g);
+        repoName = repoNameDiv.value.trim().replace(/\s?&nbsp;/g);
 
     if (repoName) {
         var req = new XMLHttpRequest();

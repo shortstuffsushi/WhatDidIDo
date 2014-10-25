@@ -1,19 +1,3 @@
-function drawstuff() { $.ajax({
-            type: "GET",
-            contentType: "application/json; charset=utf-8",
-            url: "/shortstuffsushi/WhatDidIDo",
-            dataType: "json",
-            async: true,
-            data: "{}", 
-            success: function (data) {
-              drawpie(data);
-            },
-            error: function (result) {
-              alert("Error! REF Id10t");
-            }
-      })
-
-
 /////////////////////
 /// draw pie chart //
 /////////////////////
@@ -59,7 +43,7 @@ function drawpie(data) {
     .attr('class', 'label');
 
     tooltip.append('div')
-    .attr('class', 'count');
+    .attr('class', 'lineCount');
 
     tooltip.append('div')
     .attr('class', 'percent');
@@ -238,7 +222,3 @@ function bumpLayer(n) {
 }
 
 */
-
-// end of AJAX request
-
-};

@@ -2,6 +2,8 @@ What Did I Do?
 
 A tool to see how much of a Git project's blame belongs to each contributor. Not necessarily a useful metric, but something interesting to look at.
 
+Note: After a hackathon weekend, this project's web ui is in a broken state. The command line should still work fine, though.
+
 ````
 Usage: node app.js [options] [project_directory]
 
@@ -40,4 +42,4 @@ If you provide the `-p` flag, it will instead print out percentage by contributo
  4.00 | not.committed.yet
 ````
 
-Note, if a user has committed on a machine without a registered email address (no `git config --global user.email my.email@site.com`), the `not.committed.yet` address is what `git blame` provides.
+Note, if a user has uncommitted changes on their machine, the `not.committed.yet` address is what `git blame` provides.
